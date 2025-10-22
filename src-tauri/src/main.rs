@@ -1,11 +1,19 @@
 // Prevents additional console window on Windows in release, DO NOT REMOVE!!
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-use tauri::{
-    menu::{Menu, MenuItem, PredefinedMenuItem},
-    tray::TrayIconBuilder,
-    Manager, WebviewUrl, WebviewWindowBuilder, WindowEvent,
+use std::sync::Mutex;
+use tauri::{tray::TrayIconBuilder, Manager, WindowEvent};
+
+use crate::{
+    menu::get_app_menu,
+    tray::{add_break, generate_tray_icon, rgba_from_rgb, start_countdown_loop, TrayController},
+    window::open_or_create_floating,
 };
+
+pub mod menu;
+pub mod tray;
+pub mod window;
+
 fn set_nvidia_wayland_safety_envs() {
     // Only set if not already set by user; keep it app-scoped.
     for (k, v) in [
@@ -22,47 +30,12 @@ fn set_nvidia_wayland_safety_envs() {
     }
 }
 
-fn open_or_create_main(app: &tauri::AppHandle) {
-    if let Some(w) = app.get_webview_window("main") {
-        let _ = w.show();
-        let _ = w.set_focus();
-        return;
-    }
-    // Create the window on demand
-    let _ = WebviewWindowBuilder::new(app, "main", tauri::WebviewUrl::App("index.html".into()))
-        .title("MyTrayApp")
-        .visible(true) // created visible now
-        .min_inner_size(800.0, 540.0)
-        .build();
-}
-
-fn open_or_create_floating(app: &tauri::AppHandle) {
-    if let Some(w) = app.get_webview_window("float") {
-        let _ = w.show();
-        let _ = w.set_focus();
-        return;
-    }
-
-    let _ = WebviewWindowBuilder::new(
-        app,
-        "float",
-        WebviewUrl::App("index.html".into()), // or your devUrl in dev
-    )
-    .title("Floating")
-    .decorations(false) // frameless
-    .transparent(true) // enable transparent background
-    .always_on_top(true) // stay above other windows
-    .resizable(false)
-    .skip_taskbar(true) // hide from taskbar/dock
-    .inner_size(360.0, 120.0) // tweak to your UI
-    .build();
-}
-
 fn main() {
     #[cfg(all(target_os = "linux"))]
     set_nvidia_wayland_safety_envs();
 
     tauri::Builder::default()
+        .invoke_handler(tauri::generate_handler![add_break])
         .on_window_event(|w, e| {
             if let WindowEvent::CloseRequested { api, .. } = e {
                 api.prevent_close();
@@ -70,13 +43,15 @@ fn main() {
             }
         })
         .setup(|app| {
-            let open = MenuItem::with_id(app, "open", "Open", true, None::<&str>)?;
-            let sep = PredefinedMenuItem::separator(app)?;
-            let quit = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?;
-            let menu = Menu::with_items(app, &[&open, &sep, &quit])?;
+            let initial_rgb = (255, 255, 255);
+            let initial_color = rgba_from_rgb(initial_rgb);
+            let initial_label = "No breaks".to_string();
+            let (menu, status_item) = get_app_menu(app, &initial_label)?;
+            let tray_image = generate_tray_icon(initial_color);
 
-            TrayIconBuilder::new()
+            let tray = TrayIconBuilder::with_id("status")
                 .menu(&menu)
+                .icon(tray_image)
                 .show_menu_on_left_click(true)
                 .on_menu_event(|app, event| match event.id.as_ref() {
                     "open" => open_or_create_floating(app),
@@ -84,6 +59,13 @@ fn main() {
                     _ => {}
                 })
                 .build(app)?;
+
+            let controller = TrayController::new(tray.clone(), status_item.clone());
+            app.manage(Mutex::new(controller.clone()));
+            tray.set_tooltip(Some(
+                controller.current_label().unwrap_or_else(|_| "".into()),
+            ))?;
+            start_countdown_loop(controller);
             Ok(())
         })
         .run(tauri::generate_context!())
