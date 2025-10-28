@@ -1,50 +1,50 @@
 export const palette = {
   background: {
-    page: "bg-gradient-to-br from-slate-950 via-slate-900 to-black",
-    surface: "bg-slate-900/80",
-    surfaceMuted: "bg-slate-900/60",
-    surfaceOverlay: "bg-slate-900/70",
-    surfaceGradient: "bg-gradient-to-br from-slate-900/80 via-slate-900/40 to-slate-900/80",
-    surfaceDeep: "bg-slate-950/90",
-    surfaceSolid: "bg-slate-900",
+    page: "bg-neutral-950",
+    surface: "bg-neutral-900",
+    surfaceMuted: "bg-neutral-900",
+    surfaceOverlay: "bg-neutral-900",
+    surfaceGradient: "bg-neutral-900",
+    surfaceDeep: "bg-neutral-950",
+    surfaceSolid: "bg-neutral-900",
   },
   border: {
-    default: "border-slate-800/80",
-    strong: "border-slate-800/60",
-    accent: "border-emerald-400/40",
+    default: "border-neutral-800",
+    strong: "border-neutral-700",
+    accent: "border-neutral-500",
   },
   divider: {
-    subtle: "divide-slate-800/80",
-    header: "border-slate-800/80",
+    subtle: "divide-neutral-800",
+    header: "border-neutral-800",
   },
   text: {
-    page: "text-slate-200",
-    primary: "text-slate-100",
-    secondary: "text-slate-500",
-    muted: "text-slate-400",
-    accent: "text-emerald-200",
+    page: "text-neutral-200",
+    primary: "text-neutral-100",
+    secondary: "text-neutral-400",
+    muted: "text-neutral-500",
+    accent: "text-neutral-100",
   },
   accent: {
-    surface: "bg-emerald-500/10",
-    surfaceHover: "hover:bg-emerald-500/20",
-    text: "text-emerald-200",
+    surface: "bg-white/5",
+    surfaceHover: "hover:bg-white/10",
+    text: "text-white",
   },
   glow: {
-    emerald: "bg-emerald-500/30",
-    sky: "bg-sky-500/20",
+    emerald: "bg-transparent",
+    sky: "bg-transparent",
   },
 };
 
 export const states = {
-  surfaceHover: "hover:bg-slate-800/40",
-  accentBorderHover: "hover:border-emerald-400/40",
-  accentTextHover: "hover:text-emerald-200",
+  surfaceHover: "hover:bg-neutral-800",
+  accentBorderHover: "hover:border-neutral-400",
+  accentTextHover: "hover:text-white",
 };
 
 export const effects = {
-  shellShadow: "shadow-[0_40px_120px_rgba(0,0,0,0.45)]",
+  shellShadow: "shadow-2xl",
   focusRing:
-    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400/60 focus-visible:ring-offset-0",
+    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-300/50 focus-visible:ring-offset-0",
 };
 
 export const radii = {

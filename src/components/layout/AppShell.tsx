@@ -14,7 +14,7 @@ export function AppShell() {
     >
       <section
         className={cn(
-          "grid min-h-screen w-full gap-px border backdrop-blur-xl",
+          "grid min-h-screen w-full gap-px border",
           "md:grid-cols-[360px_1fr]",
           palette.border.default,
           palette.background.surface,

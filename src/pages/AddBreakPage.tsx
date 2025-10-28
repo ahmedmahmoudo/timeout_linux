@@ -8,6 +8,9 @@ import { ColorPicker } from "../components/ui/ColorPicker";
 import { Input } from "../components/ui/Input";
 import { Button } from "../components/ui/Button";
 import { Text } from "../components/ui/Text";
+import { invoke } from "@tauri-apps/api/core";
+import { hexToRgb } from "../lib/colors";
+import { useRouter } from "@tanstack/react-router";
 
 const timeUnitOptions: TimeUnitOption[] = [
   { value: "seconds", label: "Seconds" },
@@ -20,6 +23,7 @@ type BreakFormErrors = {
   name?: string;
   breakFor?: string;
   every?: string;
+  color?: string;
 };
 
 export function AddBreakPage() {
@@ -34,6 +38,7 @@ export function AddBreakPage() {
     unit: "hours",
   });
   const [errors, setErrors] = useState<BreakFormErrors>({});
+  const router = useRouter();
 
   const clearError = (key: keyof BreakFormErrors) => {
     setErrors((prev) => {
@@ -45,8 +50,11 @@ export function AddBreakPage() {
     });
   };
 
-  const validateDuration = (value: DurationValue, type: "breakFor" | "every") => {
-    if (value.amount === "" || Number(value.amount) <= 0) {
+  const validateDuration = (
+    value: DurationValue,
+    type: "breakFor" | "every"
+  ) => {
+    if (value.amount <= 0) {
       return type === "breakFor"
         ? "Break duration must be greater than zero."
         : "Frequency must be greater than zero.";
@@ -54,7 +62,24 @@ export function AddBreakPage() {
     return undefined;
   };
 
-  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+  const amountInSeconds = (value: DurationValue) => {
+    switch (value.unit) {
+      case "seconds": {
+        return value.amount;
+      }
+      case "minutes": {
+        return value.amount * 60;
+      }
+      case "hours": {
+        return value.amount * 60 * 60;
+      }
+      case "days": {
+        return value.amount * 60 * 60 * 24;
+      }
+    }
+  };
+
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const nextErrors: BreakFormErrors = {};
 
@@ -72,18 +97,38 @@ export function AddBreakPage() {
       nextErrors.every = everyError;
     }
 
+    const rgbColor = hexToRgb(color);
+    if (!rgbColor) {
+      nextErrors.color = "Choose a valid hex color.";
+    }
+
     if (Object.keys(nextErrors).length > 0) {
       setErrors(nextErrors);
       return;
     }
 
-    // TODO: Connect to backend/system once available.
-    console.table({
-      name,
-      color,
-      breakFor,
-      every,
+    // Convert durations to seconds
+    const durationInSeconds = amountInSeconds(breakFor);
+    const everyInSeconds = amountInSeconds(every);
+
+    const id = await invoke<string>("add_break", {
+      break_to_add: {
+        name,
+        every: everyInSeconds,
+        duration: durationInSeconds,
+        color: rgbColor,
+        remaning: durationInSeconds,
+      },
     });
+
+    // Reset
+    setName("");
+    setColor("#ef4444");
+    setBreakFor({ amount: 10, unit: "minutes" });
+    setEvery({ amount: 1, unit: "hours" });
+
+    // Go to the break page
+    router.navigate({ to: "/break/$id", params: { id } });
   };
 
   return (
@@ -107,11 +152,21 @@ export function AddBreakPage() {
             Break details
           </Text>
           <div className="flex items-center gap-4">
-            <ColorPicker
-              value={color}
-              onChange={setColor}
-              label="Choose break color"
-            />
+            <div className="space-y-1">
+              <ColorPicker
+                value={color}
+                onChange={(next) => {
+                  setColor(next);
+                  clearError("color");
+                }}
+                label="Choose break color"
+              />
+              {errors.color ? (
+                <Text as="p" variant="error" role="alert">
+                  {errors.color}
+                </Text>
+              ) : null}
+            </div>
             <Input
               value={name}
               onChange={(event) => {

@@ -9,6 +9,7 @@ import { HomePage } from "./pages/HomePage";
 import { AddBreakPage } from "./pages/AddBreakPage";
 import { SettingsPage } from "./pages/SettingsPage";
 import { ShortcutsPage } from "./pages/ShortcutsPage";
+import { BreakPage } from "./pages/BreakPage";
 
 const rootRoute = createRootRoute({
   component: AppShell,
@@ -38,11 +39,18 @@ const shortcutsRoute = createRoute({
   component: ShortcutsPage,
 });
 
+const breakPage = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/break/$id",
+  component: BreakPage,
+});
+
 const routeTree = rootRoute.addChildren([
   homeRoute,
   addBreakRoute,
   settingsRoute,
   shortcutsRoute,
+  breakPage,
 ]);
 
 const router = createRouter({

@@ -1,27 +1,23 @@
 export type BreakSummary = {
   id: string;
   name: string;
-  dueIn: string;
-  color: string;
+  every: number;
+  duration: number;
+  color: number[];
+  remaning: number;
+  run_time?: number | null;
+  is_running?: boolean | null;
+  shortcut?: string | null;
+  description?: string | null;
 };
 
-export const breaks: BreakSummary[] = [
-  {
-    id: "micro",
-    name: "Micro Break",
-    dueIn: "5 minutes",
-    color: "#38bdf8",
-  },
-  {
-    id: "stretch",
-    name: "Stretch Session",
-    dueIn: "20 minutes",
-    color: "#f97316",
-  },
-  {
-    id: "deep-rest",
-    name: "Deep Rest",
-    dueIn: "1 hour",
-    color: "#a855f7",
-  },
-];
+export type BreakUpdatePayload = {
+  id: string;
+  name?: string;
+  every?: number;
+  duration?: number;
+  color?: [number, number, number];
+  remaning?: number;
+  shortcut?: string | null;
+  description?: string | null;
+};

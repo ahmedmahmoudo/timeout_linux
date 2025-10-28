@@ -12,7 +12,7 @@ export type TimeUnitOption = {
 };
 
 export type DurationValue = {
-  amount: number | "";
+  amount: number;
   unit: string;
 };
 
@@ -39,7 +39,7 @@ export function DurationField({
   const labelId = useId();
 
   const handleAmountChange = (event: ChangeEvent<HTMLInputElement>) => {
-    const nextAmount = event.target.value === "" ? "" : Number(event.target.value);
+    const nextAmount = Number(event.target.value);
     if (Number.isNaN(nextAmount)) {
       return;
     }
@@ -52,7 +52,13 @@ export function DurationField({
 
   return (
     <div className={cn("space-y-2", className)}>
-      <Text as="label" id={labelId} htmlFor={amountId} variant="label" className="block">
+      <Text
+        as="label"
+        id={labelId}
+        htmlFor={amountId}
+        variant="label"
+        className="block"
+      >
         {label}
       </Text>
       <div className="flex gap-3">
@@ -64,7 +70,8 @@ export function DurationField({
           onChange={handleAmountChange}
           className={cn(
             "w-28",
-            error && "border-rose-500/70 focus:border-rose-400/80 focus:ring-rose-400/40"
+            error &&
+              "border-rose-500/70 focus:border-rose-400/80 focus:ring-rose-400/40"
           )}
           aria-invalid={Boolean(error)}
           aria-describedby={error ? `${amountId}-error` : undefined}
@@ -84,7 +91,11 @@ export function DurationField({
           {error}
         </Text>
       ) : helperText ? (
-        <Text as="p" variant="muted" className={cn(palette.text.secondary, "text-xs")}>
+        <Text
+          as="p"
+          variant="muted"
+          className={cn(palette.text.secondary, "text-xs")}
+        >
           {helperText}
         </Text>
       ) : null}
