@@ -8,8 +8,8 @@ import {
 import { Card } from "../components/ui/Card";
 import { useBreaks } from "../hooks/useBreaks";
 import { BreakNameTab } from "../components/tabs/break/Name";
-import { EmptyTabState } from "../components/ui/EmptyState";
 import { BreakScheduleTab } from "../components/tabs/break/Schedule";
+import { BreakAppearanceTab } from "../components/tabs/break/Appearance";
 
 export function BreakPage() {
   const { id } = useParams({ from: "/break/$id" });
@@ -53,10 +53,7 @@ export function BreakPage() {
         )}
 
         {activeTab === "appearance" ? (
-          <EmptyTabState
-            title="Appearance controls are coming soon"
-            description="Soon you’ll customise sounds, icons, and more."
-          />
+          <BreakAppearanceTab brek={foundBreak} onUpdate={updateBreak} />
         ) : null}
       </Card>
     </div>

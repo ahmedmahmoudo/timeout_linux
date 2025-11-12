@@ -1,10 +1,11 @@
 use std::path::PathBuf;
 
-use tauri::{AppHandle, Emitter, State};
+use tauri::{AppHandle, Emitter, Manager, State};
 use tauri_plugin_notification::NotificationExt;
 use uuid::Uuid;
 
 use crate::state::controller::{AppState, Break, CreateableBreak, UpdateBreak};
+use crate::state::storage::persist_breaks;
 use crate::window::{close_break_overlay, show_break_overlay, update_break_overlay};
 
 #[tauri::command(rename_all = "snake_case")]
@@ -14,6 +15,7 @@ pub fn add_break(
     break_to_add: CreateableBreak,
 ) -> Result<String, String> {
     let id = state.add_break(break_to_add);
+    persist_breaks(&app_handle, &state.list_breaks());
     let _ = app_handle
         .emit("breaks-tick", state.list_breaks())
         .map_err(|e| e.to_string())?;
@@ -37,6 +39,7 @@ pub fn update_break(
     payload: UpdateBreak,
 ) -> Result<Break, String> {
     let updated = state.update_break(payload)?;
+    persist_breaks(&app_handle, &state.list_breaks());
 
     let _ = app_handle
         .emit("break-updated", &updated)
@@ -52,6 +55,7 @@ pub fn update_break(
 #[tauri::command(rename_all = "snake_case")]
 pub fn delete_break(state: State<AppState>, app_handle: AppHandle, id: Uuid) -> Result<(), String> {
     let deleted = state.delete_break(id)?;
+    persist_breaks(&app_handle, &state.list_breaks());
 
     let _ = app_handle
         .emit("break-deleted", &deleted)
@@ -161,6 +165,22 @@ pub fn resume_break(
 }
 
 #[tauri::command(rename_all = "snake_case")]
+pub fn preview_break(
+    state: State<AppState>,
+    app_handle: AppHandle,
+    id: Uuid,
+) -> Result<(), String> {
+    let mut preview = state.get_break(id)?;
+    preview.is_running = Some(true);
+    preview.is_paused = Some(false);
+    preview.run_time = Some(preview.duration);
+    preview.is_preview = Some(true);
+
+    show_break_overlay(&app_handle, &preview);
+    Ok(())
+}
+
+#[tauri::command(rename_all = "snake_case")]
 pub fn set_break_theme_path(
     state: State<AppState>,
     app_handle: AppHandle,
@@ -193,4 +213,11 @@ pub fn get_break_theme_path(state: State<AppState>) -> Result<Option<String>, St
     Ok(state
         .theme_path()
         .map(|path| path.to_string_lossy().into_owned()))
+}
+#[tauri::command(rename_all = "snake_case")]
+pub fn dismiss_break_overlay(app_handle: AppHandle) -> Result<(), String> {
+    if let Some(window) = app_handle.get_webview_window("break-session") {
+        let _ = window.hide();
+    }
+    Ok(())
 }

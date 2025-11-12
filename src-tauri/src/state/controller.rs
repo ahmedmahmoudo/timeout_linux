@@ -17,6 +17,9 @@ pub struct Break {
     pub is_paused: Option<bool>,
     pub shortcut: Option<String>,
     pub description: Option<String>,
+    pub appearance: BreakAppearance,
+    #[serde(default)]
+    pub is_preview: Option<bool>,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -29,6 +32,9 @@ pub struct CreateableBreak {
     pub shortcut: Option<String>,
     pub description: Option<String>,
     pub is_paused: Option<bool>,
+    pub appearance: Option<BreakAppearance>,
+    #[serde(default)]
+    pub is_preview: Option<bool>,
 }
 
 #[derive(Deserialize)]
@@ -42,6 +48,31 @@ pub struct UpdateBreak {
     pub shortcut: Option<Option<String>>,
     pub description: Option<Option<String>>,
     pub is_paused: Option<Option<bool>>,
+    pub appearance: Option<UpdateBreakAppearance>,
+}
+
+#[derive(Clone, Serialize, Deserialize)]
+pub struct BreakAppearance {
+    pub theme: String,
+    pub background_color: (u8, u8, u8),
+    pub show_skip_controls: bool,
+}
+
+impl Default for BreakAppearance {
+    fn default() -> Self {
+        Self {
+            theme: "default".into(),
+            background_color: (15, 23, 42),
+            show_skip_controls: true,
+        }
+    }
+}
+
+#[derive(Clone, Serialize, Deserialize)]
+pub struct UpdateBreakAppearance {
+    pub theme: Option<String>,
+    pub background_color: Option<(u8, u8, u8)>,
+    pub show_skip_controls: Option<bool>,
 }
 
 #[derive(Default)]
@@ -62,6 +93,11 @@ impl AppState {
         self.breaks.lock().expect("state poisoned").clone()
     }
 
+    pub fn replace_breaks(&self, items: Vec<Break>) {
+        let mut breaks = self.breaks.lock().expect("state poisoned");
+        *breaks = items;
+    }
+
     pub fn add_break(&self, new_break: CreateableBreak) -> String {
         let id = Uuid::new_v4();
         self.breaks.lock().expect("state poisoned").push(Break {
@@ -76,6 +112,8 @@ impl AppState {
             is_paused: new_break.is_paused,
             shortcut: new_break.shortcut,
             description: new_break.description,
+            appearance: new_break.appearance.unwrap_or_default(),
+            is_preview: Some(false),
         });
 
         id.to_string()
@@ -202,6 +240,17 @@ impl AppState {
         if let Some(is_paused) = payload.is_paused {
             target.is_paused = is_paused;
         }
+        if let Some(appearance) = payload.appearance {
+            if let Some(theme) = appearance.theme {
+                target.appearance.theme = theme;
+            }
+            if let Some(background) = appearance.background_color {
+                target.appearance.background_color = background;
+            }
+            if let Some(show_skip) = appearance.show_skip_controls {
+                target.appearance.show_skip_controls = show_skip;
+            }
+        }
 
         Ok(target.clone())
     }
@@ -227,6 +276,7 @@ impl AppState {
         target.is_running = Some(true);
         target.is_paused = Some(false);
         target.run_time = Some(target.duration);
+        target.is_preview = Some(false);
 
         Ok(target.clone())
     }
@@ -242,6 +292,7 @@ impl AppState {
         target.is_running = Some(false);
         target.is_paused = Some(false);
         target.run_time = None;
+        target.is_preview = Some(false);
 
         Ok(target.clone())
     }
@@ -256,6 +307,7 @@ impl AppState {
         if target.is_running.unwrap_or(false) {
             target.is_running = Some(true);
             target.is_paused = Some(true);
+            target.is_preview = Some(false);
         }
 
         Ok(target.clone())
@@ -274,6 +326,7 @@ impl AppState {
             if target.run_time.is_none() {
                 target.run_time = Some(target.duration);
             }
+            target.is_preview = Some(false);
         }
 
         Ok(target.clone())

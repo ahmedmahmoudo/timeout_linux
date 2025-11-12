@@ -7,18 +7,9 @@ use tauri::{tray::TrayIconBuilder, AppHandle, Emitter, Manager, WindowEvent};
 use crate::{
     menu::get_app_menu,
     state::{
-        add_break,
-        clear_break_theme_path,
-        delete_break,
-        get_break,
-        get_break_theme_path,
-        get_breaks,
-        pause_break,
-        resume_break,
-        set_break_theme_path,
-        skip_break,
-        start_break,
-        update_break,
+        add_break, clear_break_theme_path, delete_break, dismiss_break_overlay, get_break,
+        get_break_theme_path, get_breaks, pause_break, preview_break, resume_break,
+        set_break_theme_path, skip_break, start_break, storage::load_breaks, update_break,
         AppState,
     },
     tray::{generate_tray_icon, rgba_from_rgb, TrayController},
@@ -52,6 +43,7 @@ fn main() {
 
     tauri::Builder::default()
         .plugin(tauri_plugin_notification::init())
+        .plugin(tauri_plugin_store::Builder::default().build())
         .manage(AppState::new(Vec::new()))
         .invoke_handler(tauri::generate_handler![
             add_break,
@@ -59,7 +51,9 @@ fn main() {
             get_break,
             get_break_theme_path,
             pause_break,
+            preview_break,
             resume_break,
+            dismiss_break_overlay,
             set_break_theme_path,
             skip_break,
             start_break,
@@ -74,6 +68,11 @@ fn main() {
             }
         })
         .setup(|app| {
+            let initial_breaks = load_breaks(&app.handle());
+            if !initial_breaks.is_empty() {
+                app.state::<AppState>().replace_breaks(initial_breaks);
+            }
+
             let initial_rgb = (255, 255, 255);
             let initial_color = rgba_from_rgb(initial_rgb);
             let initial_label = "No breaks".to_string();

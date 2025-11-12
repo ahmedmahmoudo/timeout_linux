@@ -9,6 +9,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { hexToRgb } from "../lib/colors";
 import { useRouter } from "@tanstack/react-router";
 import { timeUnitOptions } from "../lib/time";
+import { defaultBreakAppearance } from "../data/breaks";
 
 type BreakFormErrors = {
   name?: string;
@@ -109,6 +110,7 @@ export function AddBreakPage() {
         duration: durationInSeconds,
         color: rgbColor,
         remaning: everyInSeconds,
+        appearance: defaultBreakAppearance,
       },
     });
 

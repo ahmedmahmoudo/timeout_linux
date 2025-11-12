@@ -10,7 +10,12 @@ import {
 } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
-import type { BreakSummary, BreakUpdatePayload } from "../data/breaks";
+import type {
+  BreakSummary,
+  BreakUpdatePayload,
+  BreakAppearance,
+} from "../data/breaks";
+import { defaultBreakAppearance } from "../data/breaks";
 
 type BreaksContextValue = {
   breaks: BreakSummary[];
@@ -32,7 +37,7 @@ export function BreaksProvider({ children }: { children: ReactNode }) {
     try {
       const loaded = await invoke<BreakSummary[]>("get_breaks");
       readyRef.current = true;
-      setBreaks(loaded);
+      setBreaks(loaded.map(normalizeBreakAppearance));
     } catch (error) {
       console.error("Failed to load breaks", error);
     }
@@ -51,14 +56,14 @@ export function BreaksProvider({ children }: { children: ReactNode }) {
           if (!readyRef.current) {
             return;
           }
-          setBreaks(event.payload);
+          setBreaks(event.payload.map(normalizeBreakAppearance));
         });
 
         const updated = await listen<BreakSummary>("break-updated", (event) => {
           if (!readyRef.current) {
             return;
           }
-          setBreaks((prev) => upsertBreak(prev, event.payload));
+          setBreaks((prev) => upsertBreak(prev, normalizeBreakAppearance(event.payload)));
         });
 
         const deleted = await listen<BreakSummary>("break-deleted", (event) => {
@@ -99,7 +104,7 @@ export function BreaksProvider({ children }: { children: ReactNode }) {
       try {
         const payload = mapUpdatePayload(update);
         const updated = await invoke<BreakSummary>("update_break", payload);
-        setBreaks((prev) => upsertBreak(prev, updated));
+        setBreaks((prev) => upsertBreak(prev, normalizeBreakAppearance(updated)));
         return updated;
       } catch (error) {
         console.error("Failed to update break", error);
@@ -144,7 +149,7 @@ export function BreaksProvider({ children }: { children: ReactNode }) {
 
       try {
         const updated = await invoke<BreakSummary>("start_break", { id });
-        setBreaks((prev) => upsertBreak(prev, updated));
+        setBreaks((prev) => upsertBreak(prev, normalizeBreakAppearance(updated)));
         return updated;
       } catch (error) {
         console.error("Failed to start break", error);
@@ -173,7 +178,7 @@ export function BreaksProvider({ children }: { children: ReactNode }) {
 
       try {
         const updated = await invoke<BreakSummary>("skip_break", { id });
-        setBreaks((prev) => upsertBreak(prev, updated));
+        setBreaks((prev) => upsertBreak(prev, normalizeBreakAppearance(updated)));
         return updated;
       } catch (error) {
         console.error("Failed to skip break", error);
@@ -241,6 +246,22 @@ function applyPatch(
     ...(patch.description !== undefined
       ? { description: patch.description }
       : null),
+    ...(patch.appearance !== undefined
+      ? {
+          appearance: {
+            ...current.appearance,
+            ...(patch.appearance.theme !== undefined
+              ? { theme: patch.appearance.theme }
+              : null),
+            ...(patch.appearance.background_color !== undefined
+              ? { background_color: patch.appearance.background_color }
+              : null),
+            ...(patch.appearance.show_skip_controls !== undefined
+              ? { show_skip_controls: patch.appearance.show_skip_controls }
+              : null),
+          },
+        }
+      : null),
   };
 
   const nextList = [...existing];
@@ -273,6 +294,22 @@ function mapUpdatePayload(update: BreakUpdatePayload) {
   if (update.description !== undefined) {
     body.description = update.description;
   }
+  if (update.appearance !== undefined) {
+    body.appearance = update.appearance;
+  }
 
   return payload;
+}
+
+function normalizeBreakAppearance(brek: BreakSummary): BreakSummary {
+  const fallback = defaultBreakAppearance;
+  const appearance: BreakAppearance = {
+    ...fallback,
+    ...(brek.appearance ?? fallback),
+  };
+
+  return {
+    ...brek,
+    appearance,
+  };
 }

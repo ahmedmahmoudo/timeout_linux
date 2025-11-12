@@ -174,7 +174,6 @@
         <div class="actions">
           <button id="pause">Pause</button>
           <button id="skip">Skip</button>
-          <button id="close">Close</button>
         </div>
       </div>
     </div>
@@ -286,12 +285,16 @@
 
     const pauseButton = document.getElementById("pause");
     const skipButton = document.getElementById("skip");
-    const closeButton = document.getElementById("close");
     const timerEl = document.getElementById("timer");
     const nameEl = document.getElementById("break-name");
     const subtitleEl = document.getElementById("subtitle");
     const themeFrame = document.getElementById("theme-frame");
     const defaultThemeTemplate = document.getElementById("default-theme-template");
+    const stageEl = document.querySelector(".stage");
+    const appearanceDefaults = {
+      background_color: [15, 23, 42],
+      show_skip_controls: true,
+    };
 
     const encodeDataUrl = (markup) =>
       `data:text/html;base64,${btoa(unescape(encodeURIComponent(markup)))}`;
@@ -302,7 +305,7 @@
     let currentBreak = null;
     let localSeconds = 0;
     let localTicker = null;
-    let frameLoaded = false;
+    let previewMode = false;
 
     const formatTime = (seconds) => {
       const total = Math.max(0, Math.floor(seconds));
@@ -321,6 +324,57 @@
         timerEl.textContent = formatTime(localSeconds);
         if (localSeconds === 0) clearTicker();
       }, 1000);
+    };
+
+    const getColorTuple = (value) => {
+      if (Array.isArray(value) && value.length >= 3) {
+        return value.slice(0, 3);
+      }
+      return appearanceDefaults.background_color;
+    };
+
+    const backgroundFromColor = (tuple) => {
+      const [r, g, b] = tuple;
+      return `radial-gradient(circle at top, rgba(${r}, ${g}, ${b}, 0.35) 0%, rgba(${r}, ${g}, ${b}, 0.85) 55%, rgba(${Math.max(0, r - 10)}, ${Math.max(0, g - 10)}, ${Math.max(0, b - 10)}, 1) 100%)`;
+    };
+
+    const applyAppearance = (appearance) => {
+      const next = {
+        ...appearanceDefaults,
+        ...(appearance || {}),
+      };
+
+      const colorTuple = getColorTuple(next.background_color);
+      if (stageEl) {
+        stageEl.style.background = backgroundFromColor(colorTuple);
+      }
+
+      if (skipButton) {
+        const hideSkip = !next.show_skip_controls;
+        skipButton.style.display = hideSkip ? "none" : "";
+        skipButton.setAttribute("aria-hidden", String(hideSkip));
+        skipButton.setAttribute("aria-disabled", String(hideSkip));
+        skipButton.tabIndex = hideSkip ? -1 : 0;
+        skipButton.disabled = hideSkip;
+      }
+    };
+    const closeOverlayWindow = () => {
+      getCurrent()
+        .hide()
+        .catch((error) => {
+          console.error("Failed to hide overlay window", error);
+        });
+    };
+
+    const endPreviewSession = () => {
+      clearTicker();
+      postToTheme("break:end", currentBreak || {});
+      currentBreak = null;
+      previewMode = false;
+      invoke("dismiss_break_overlay").catch((error) => {
+        console.error("Failed to dismiss preview overlay", error);
+        closeOverlayWindow();
+      });
     };
 
     const postToTheme = (type, data) => {
@@ -358,6 +412,8 @@
       localSeconds = currentBreak.run_time ?? 0;
       timerEl.textContent = formatTime(localSeconds);
 
+      applyAppearance(currentBreak.appearance);
+
       const isPaused = Boolean(currentBreak.is_paused);
       pauseButton.textContent = isPaused ? "Resume" : "Pause";
       subtitleEl.textContent = isPaused
@@ -388,7 +444,6 @@
     });
 
     themeFrame.addEventListener("load", () => {
-      frameLoaded = true;
       if (currentBreak) postToTheme("break:start", currentBreak);
     });
 
@@ -402,6 +457,7 @@
       await listen("break-session-update", (event) => {
         const wasNull = currentBreak == null;
         currentBreak = event.payload;
+        previewMode = Boolean(currentBreak?.is_preview);
         // If the theme source changed (refreshTheme is sent elsewhere), wait for load to fire the start
         updateUi(wasNull);
       });
@@ -409,11 +465,16 @@
       await listen("break-session-ended", () => {
         clearTicker();
         postToTheme("break:end", currentBreak || {});
-        setTimeout(() => getCurrent().close(), 200);
+        currentBreak = null;
+        closeOverlayWindow();
       });
 
       pauseButton.addEventListener("click", async () => {
         if (!currentBreak) return;
+        if (previewMode) {
+          endPreviewSession();
+          return;
+        }
         try {
           if (currentBreak.is_paused) {
             await invoke("resume_break", {id: currentBreak.id});
@@ -423,17 +484,17 @@
         } catch (error) {console.error("Failed to toggle pause", error);}
       });
 
-      skipButton.addEventListener("click", async () => {
-        if (!currentBreak) return;
-        try {await invoke("skip_break", {id: currentBreak.id});}
-        catch (error) {console.error("Failed to skip break", error);}
-      });
-
-      closeButton.addEventListener("click", () => {
-        clearTicker();
-        postToTheme("break:end", currentBreak || {});
-        getCurrent().close();
-      });
+      if (skipButton) {
+        skipButton.addEventListener("click", async () => {
+          if (!currentBreak) return;
+          if (previewMode) {
+            endPreviewSession();
+            return;
+          }
+          try {await invoke("skip_break", {id: currentBreak.id});}
+          catch (error) {console.error("Failed to skip break", error);}
+        });
+      }
     };
 
     document.addEventListener("DOMContentLoaded", init);
