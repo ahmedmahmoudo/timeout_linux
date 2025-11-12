@@ -1,9 +1,6 @@
 import { useState, type FormEvent } from "react";
 import { DurationField } from "../components/form/DurationField";
-import type {
-  DurationValue,
-  TimeUnitOption,
-} from "../components/form/DurationField";
+import type { DurationValue } from "../components/form/DurationField";
 import { ColorPicker } from "../components/ui/ColorPicker";
 import { Input } from "../components/ui/Input";
 import { Button } from "../components/ui/Button";
@@ -11,13 +8,7 @@ import { Text } from "../components/ui/Text";
 import { invoke } from "@tauri-apps/api/core";
 import { hexToRgb } from "../lib/colors";
 import { useRouter } from "@tanstack/react-router";
-
-const timeUnitOptions: TimeUnitOption[] = [
-  { value: "seconds", label: "Seconds" },
-  { value: "minutes", label: "Minutes" },
-  { value: "hours", label: "Hours" },
-  { value: "days", label: "Days" },
-];
+import { timeUnitOptions } from "../lib/time";
 
 type BreakFormErrors = {
   name?: string;
@@ -52,7 +43,7 @@ export function AddBreakPage() {
 
   const validateDuration = (
     value: DurationValue,
-    type: "breakFor" | "every"
+    type: "breakFor" | "every",
   ) => {
     if (value.amount <= 0) {
       return type === "breakFor"
@@ -117,7 +108,7 @@ export function AddBreakPage() {
         every: everyInSeconds,
         duration: durationInSeconds,
         color: rgbColor,
-        remaning: durationInSeconds,
+        remaning: everyInSeconds,
       },
     });
 

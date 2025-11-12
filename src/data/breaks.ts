@@ -7,6 +7,7 @@ export type BreakSummary = {
   remaning: number;
   run_time?: number | null;
   is_running?: boolean | null;
+  is_paused?: boolean | null;
   shortcut?: string | null;
   description?: string | null;
 };

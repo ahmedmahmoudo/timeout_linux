@@ -6,11 +6,22 @@ use tauri::{tray::TrayIconBuilder, AppHandle, Emitter, Manager, WindowEvent};
 
 use crate::{
     menu::get_app_menu,
-    state::AppState,
-    tray::{
-        add_break, generate_tray_icon, get_break, get_breaks, rgba_from_rgb, update_break,
-        TrayController,
+    state::{
+        add_break,
+        clear_break_theme_path,
+        delete_break,
+        get_break,
+        get_break_theme_path,
+        get_breaks,
+        pause_break,
+        resume_break,
+        set_break_theme_path,
+        skip_break,
+        start_break,
+        update_break,
+        AppState,
     },
+    tray::{generate_tray_icon, rgba_from_rgb, TrayController},
     window::open_or_create_floating,
 };
 
@@ -40,12 +51,21 @@ fn main() {
     set_nvidia_wayland_safety_envs();
 
     tauri::Builder::default()
+        .plugin(tauri_plugin_notification::init())
         .manage(AppState::new(Vec::new()))
         .invoke_handler(tauri::generate_handler![
             add_break,
             get_breaks,
             get_break,
-            update_break
+            get_break_theme_path,
+            pause_break,
+            resume_break,
+            set_break_theme_path,
+            skip_break,
+            start_break,
+            update_break,
+            clear_break_theme_path,
+            delete_break
         ])
         .on_window_event(|w, e| {
             if let WindowEvent::CloseRequested { api, .. } = e {
@@ -109,7 +129,7 @@ pub(crate) fn start_countdown_loop(controller: TrayController, app: AppHandle) {
 
                 // decrease breaks timer
                 let state = app.state::<AppState>();
-                state.run_timer();
+                state.run_timer(app.clone());
                 if let Err(err) = app.emit("breaks-tick", state.list_breaks()) {
                     eprintln!("failed to emit break tick: {err}");
                 }

@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8" />
+  <title>Break Session Overlay</title>
+  <style>
+    :root {
+      color-scheme: dark;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      width: 100vw;
+      height: 100vh;
+      background: #020617;
+      color: #e2e8f0;
+      font-family: "Fira Code", "JetBrains Mono", "SFMono-Regular", monospace;
+      overflow: hidden;
+    }
+
+    .stage {
+      position: relative;
+      width: 100vw;
+      height: 100vh;
+      background: #000;
+    }
+
+    .theme-frame {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      border: 0;
+      background: #020617;
+    }
+
+    .hud {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-end;
+      align-items: center;
+      padding: clamp(1.5rem, 5vw, 4rem);
+      pointer-events: none;
+    }
+
+    .hud-panel {
+      width: min(720px, 92vw);
+      display: flex;
+      flex-direction: column;
+      gap: clamp(1rem, 2vw, 1.75rem);
+      padding: clamp(1.5rem, 3vw, 2.5rem) clamp(1.8rem, 4vw, 3rem);
+      border-radius: 1.5rem;
+      background: rgba(15, 23, 42, 0.72);
+      border: 1px solid rgba(148, 163, 184, 0.35);
+      backdrop-filter: blur(16px);
+      box-shadow: 0 28px 80px rgba(15, 23, 42, 0.55);
+      pointer-events: auto;
+    }
+
+    .hud-header {
+      display: flex;
+      flex-direction: column;
+      gap: 0.25rem;
+      text-align: center;
+    }
+
+    .hud-label {
+      font-size: 0.75rem;
+      letter-spacing: 0.24em;
+      text-transform: uppercase;
+      color: rgba(203, 213, 225, 0.75);
+    }
+
+    #break-name {
+      margin: 0;
+      font-size: clamp(1.4rem, 3vw, 1.85rem);
+      letter-spacing: 0.04em;
+      color: #cbd5f5;
+    }
+
+    #timer {
+      font-size: clamp(3rem, 9vw, 5.5rem);
+      font-weight: 600;
+      text-align: center;
+      letter-spacing: 0.12em;
+      color: #fef3c7;
+      text-shadow: 0 0 22px rgba(250, 204, 21, 0.45);
+    }
+
+    #subtitle {
+      margin: 0;
+      text-align: center;
+      font-size: clamp(0.9rem, 2vw, 1.1rem);
+      color: rgba(226, 232, 240, 0.82);
+    }
+
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 0.75rem;
+    }
+
+    button {
+      padding: 0.75rem 1.9rem;
+      border-radius: 999px;
+      border: none;
+      font-size: 0.95rem;
+      font-weight: 500;
+      letter-spacing: 0.02em;
+      cursor: pointer;
+      transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      pointer-events: auto;
+    }
+
+    button:focus-visible {
+      outline: 2px solid rgba(148, 163, 184, 0.4);
+      outline-offset: 3px;
+    }
+
+    #pause {
+      background: linear-gradient(135deg, rgba(74, 222, 128, 0.25), rgba(22, 163, 74, 0.35));
+      color: #bbf7d0;
+    }
+
+    #skip {
+      background: linear-gradient(135deg, rgba(59, 130, 246, 0.25), rgba(37, 99, 235, 0.35));
+      color: #bfdbfe;
+    }
+
+    #close {
+      background: linear-gradient(135deg, rgba(248, 113, 113, 0.2), rgba(220, 38, 38, 0.35));
+      color: #fecaca;
+    }
+
+    button:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 12px 20px rgba(15, 23, 42, 0.4);
+    }
+
+    button:active {
+      transform: translateY(0px);
+    }
+
+    @media (max-width: 640px) {
+      .hud-panel {
+        padding: 1.25rem 1.5rem;
+      }
+
+      #timer {
+        letter-spacing: 0.08em;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="stage">
+    <iframe id="theme-frame" title="Break theme" class="theme-frame" sandbox="allow-scripts allow-same-origin"></iframe>
+    <div class="hud">
+      <div class="hud-panel">
+        <div class="hud-header">
+          <span class="hud-label">Break in progress</span>
+          <p id="break-name"></p>
+        </div>
+        <div id="timer">00:00</div>
+        <p id="subtitle">Stretch, breathe, and reset your focus.</p>
+        <div class="actions">
+          <button id="pause">Pause</button>
+          <button id="skip">Skip</button>
+          <button id="close">Close</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <template id="default-theme-template">
+    <!DOCTYPE html>
+    <html lang="en">
+
+    <head>
+      <meta charset="utf-8" />
+      <style>
+        :root {
+          color-scheme: dark;
+        }
+
+        * {
+          box-sizing: border-box;
+        }
+
+        body {
+          margin: 0;
+          width: 100vw;
+          height: 100vh;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          background: radial-gradient(circle at top, #082f49 0%, #020617 60%, #000 100%);
+          color: #e0f2fe;
+          font-family: "Fira Code", "JetBrains Mono", monospace;
+          overflow: hidden;
+        }
+
+        .panel {
+          padding: 3rem clamp(1.25rem, 4vw, 3rem);
+          border-radius: 2rem;
+          background: rgba(8, 47, 73, 0.45);
+          backdrop-filter: blur(12px);
+          width: min(640px, 90vw);
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 2rem;
+          border: 1px solid rgba(96, 165, 250, 0.35);
+          box-shadow: 0 40px 80px rgba(7, 89, 133, 0.45);
+        }
+
+        h1 {
+          margin: 0;
+          font-size: clamp(1.5rem, 3vw, 2.15rem);
+          font-weight: 600;
+          letter-spacing: 0.08em;
+          text-transform: uppercase;
+          color: #bae6fd;
+          text-align: center;
+        }
+
+        .cat {
+          margin: 0;
+          white-space: pre;
+          line-height: 1.15;
+          font-size: clamp(0.9rem, 2.2vw, 1.1rem);
+          animation: stretch 3.8s ease-in-out infinite alternate;
+          filter: drop-shadow(0 0 16px rgba(56, 189, 248, 0.65));
+        }
+
+        @keyframes stretch {
+          0% {
+            transform: scale(1) translateY(0);
+          }
+
+          50% {
+            transform: scale(1.05, 0.94) translateY(-6px);
+          }
+
+          100% {
+            transform: scale(0.97, 1.06) translateY(6px);
+          }
+        }
+      </style>
+    </head>
+
+    <body>
+      <div class="panel">
+        <h1>Remember to move</h1>
+        <pre class="cat">
+          /\_/\
+          ( o .o)
+          > ^ < </pre>
+      </div>
+    </body>
+
+    </html>
+  </template>
+
+  <script type="module">
+    const {invoke, convertFileSrc} = window.__TAURI__.core;
+    const {listen} = window.__TAURI__.event;
+
+    const pauseButton = document.getElementById("pause");
+    const skipButton = document.getElementById("skip");
+    const closeButton = document.getElementById("close");
+    const timerEl = document.getElementById("timer");
+    const nameEl = document.getElementById("break-name");
+    const subtitleEl = document.getElementById("subtitle");
+    const themeFrame = document.getElementById("theme-frame");
+    const defaultThemeTemplate = document.getElementById("default-theme-template");
+
+    const encodeDataUrl = (markup) => {
+      return `data:text/html;base64,${btoa(unescape(encodeURIComponent(markup)))}`;
+    };
+
+    const defaultThemeMarkup = defaultThemeTemplate.innerHTML.trim();
+    const defaultThemeSrc = encodeDataUrl(defaultThemeMarkup);
+
+    let currentBreak = null;
+    let localSeconds = 0;
+    let localTicker = null;
+
+    const formatTime = (seconds) => {
+      const total = Math.max(0, Math.floor(seconds));
+      const mins = String(Math.floor(total / 60)).padStart(2, "0");
+      const secs = String(total % 60).padStart(2, "0");
+      return `${mins}:${secs}`;
+    };
+
+    const clearTicker = () => {
+      if (localTicker) {
+        clearInterval(localTicker);
+        localTicker = null;
+      }
+    };
+
+    const startTicker = () => {
+      clearTicker();
+      localTicker = setInterval(() => {
+        if (!currentBreak || currentBreak.is_paused) {
+          return;
+        }
+        localSeconds = Math.max(0, localSeconds - 1);
+        timerEl.textContent = formatTime(localSeconds);
+        if (localSeconds === 0) {
+          clearTicker();
+        }
+      }, 1000);
+    };
+
+    const applyThemeSource = (path) => {
+      if (path && path.length > 0) {
+        themeFrame.src = convertFileSrc(path);
+      } else {
+        themeFrame.src = defaultThemeSrc;
+      }
+    };
+
+    const refreshTheme = async () => {
+      try {
+        const path = await invoke("get_break_theme_path");
+        applyThemeSource(path ?? null);
+      } catch (error) {
+        console.error("Failed to load break theme", error);
+        applyThemeSource(null);
+      }
+    };
+
+    const updateUi = () => {
+      if (!currentBreak) {
+        timerEl.textContent = "00:00";
+        pauseButton.textContent = "Pause";
+        subtitleEl.textContent = "Stretch, breathe, and reset your focus.";
+        nameEl.textContent = "";
+        return;
+      }
+
+      nameEl.textContent = currentBreak.name ?? "";
+      localSeconds = currentBreak.run_time ?? 0;
+      timerEl.textContent = formatTime(localSeconds);
+
+      const isPaused = Boolean(currentBreak.is_paused);
+      pauseButton.textContent = isPaused ? "Resume" : "Pause";
+      subtitleEl.textContent = isPaused
+        ? "Paused — resume when you're ready."
+        : "Stretch, breathe, and reset your focus.";
+
+      if (currentBreak.is_running) {
+        if (isPaused) {
+          clearTicker();
+        } else {
+          startTicker();
+        }
+      } else {
+        clearTicker();
+      }
+    };
+
+    const init = async () => {
+      await refreshTheme();
+
+      await listen("break-theme-updated", (event) => {
+        applyThemeSource(event.payload ?? null);
+      });
+
+      await listen("break-session-update", (event) => {
+        currentBreak = event.payload;
+        updateUi();
+      });
+
+      await listen("break-session-ended", () => {
+        clearTicker();
+        setTimeout(() => window.close(), 200);
+      });
+
+      pauseButton.addEventListener("click", async () => {
+        if (!currentBreak) {
+          return;
+        }
+        try {
+          if (currentBreak.is_paused) {
+            await invoke("resume_break", {id: currentBreak.id});
+          } else {
+            await invoke("pause_break", {id: currentBreak.id});
+          }
+        } catch (error) {
+          console.error("Failed to toggle pause", error);
+        }
+      });
+
+      skipButton.addEventListener("click", async () => {
+        if (!currentBreak) {
+          return;
+        }
+        try {
+          await invoke("skip_break", {id: currentBreak.id});
+        } catch (error) {
+          console.error("Failed to skip break", error);
+        }
+      });
+
+      closeButton.addEventListener("click", () => {
+        clearTicker();
+        window.close();
+      });
+    };
+
+    document.addEventListener("DOMContentLoaded", init);
+  </script>
+</body>
+
+</html>
