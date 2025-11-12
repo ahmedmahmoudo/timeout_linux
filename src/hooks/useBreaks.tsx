@@ -17,6 +17,9 @@ type BreaksContextValue = {
   refresh: () => Promise<void>;
   getBreak: (id: string) => BreakSummary | undefined;
   updateBreak: (update: BreakUpdatePayload) => Promise<BreakSummary | null>;
+  deleteBreak: (id: string) => Promise<boolean>;
+  startBreak: (id: string) => Promise<BreakSummary | null>;
+  skipBreak: (id: string) => Promise<BreakSummary | null>;
 };
 
 const BreaksContext = createContext<BreaksContextValue | null>(null);
@@ -58,7 +61,14 @@ export function BreaksProvider({ children }: { children: ReactNode }) {
           setBreaks((prev) => upsertBreak(prev, event.payload));
         });
 
-        unlisteners.push(tick, updated);
+        const deleted = await listen<BreakSummary>("break-deleted", (event) => {
+          if (!readyRef.current) {
+            return;
+          }
+          setBreaks((prev) => prev.filter((item) => item.id !== event.payload.id));
+        });
+
+        unlisteners.push(tick, updated, deleted);
       } catch (error) {
         console.error("Failed to bind break listeners", error);
       }
@@ -100,14 +110,91 @@ export function BreaksProvider({ children }: { children: ReactNode }) {
     [refresh]
   );
 
+  const deleteBreak = useCallback(
+    async (id: string) => {
+      setBreaks((prev) => prev.filter((item) => item.id !== id));
+
+      try {
+        await invoke("delete_break", { id });
+        return true;
+      } catch (error) {
+        console.error("Failed to delete break", error);
+        refresh();
+        return false;
+      }
+    },
+    [refresh]
+  );
+
+  const startBreak = useCallback(
+    async (id: string) => {
+      setBreaks((prev) =>
+        prev.map((item) =>
+          item.id === id
+            ? {
+                ...item,
+                remaning: 0,
+                is_running: true,
+                is_paused: false,
+                run_time: item.duration,
+              }
+            : item
+        )
+      );
+
+      try {
+        const updated = await invoke<BreakSummary>("start_break", { id });
+        setBreaks((prev) => upsertBreak(prev, updated));
+        return updated;
+      } catch (error) {
+        console.error("Failed to start break", error);
+        refresh();
+        return null;
+      }
+    },
+    [refresh]
+  );
+
+  const skipBreak = useCallback(
+    async (id: string) => {
+      setBreaks((prev) =>
+        prev.map((item) =>
+          item.id === id
+            ? {
+                ...item,
+                remaning: item.every,
+                is_running: false,
+                is_paused: false,
+                run_time: null,
+              }
+            : item
+        )
+      );
+
+      try {
+        const updated = await invoke<BreakSummary>("skip_break", { id });
+        setBreaks((prev) => upsertBreak(prev, updated));
+        return updated;
+      } catch (error) {
+        console.error("Failed to skip break", error);
+        refresh();
+        return null;
+      }
+    },
+    [refresh]
+  );
+
   const value = useMemo<BreaksContextValue>(
     () => ({
       breaks,
       refresh,
       getBreak,
       updateBreak,
+      deleteBreak,
+      startBreak,
+      skipBreak,
     }),
-    [breaks, refresh, getBreak, updateBreak]
+    [breaks, refresh, getBreak, updateBreak, deleteBreak, startBreak, skipBreak]
   );
 
   return (

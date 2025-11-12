@@ -1,0 +1,443 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8" />
+  <title>Break Session Overlay</title>
+  <style>
+    :root {
+      color-scheme: dark;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    /* Transparent overlay so the frameless window shows no chrome */
+    html,
+    body {
+      margin: 0;
+      width: 100vw;
+      height: 100vh;
+      background: transparent;
+      overflow: hidden;
+      color: #e2e8f0;
+      font-family: "Fira Code", "JetBrains Mono", "SFMono-Regular", monospace;
+    }
+
+    .stage {
+      position: relative;
+      width: 100vw;
+      height: 100vh;
+      background: radial-gradient(circle at top, rgba(63, 63, 70, 0.25) 0%, rgba(24, 24, 27, 0.92) 55%, rgba(10, 10, 10, 1) 100%);
+    }
+
+    /* Theme content behind the HUD; non-interactive by default */
+    .theme-frame {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      border: 0;
+      background: transparent;
+      pointer-events: none;
+      /* HUD stays clickable */
+    }
+
+    .hud {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-end;
+      align-items: center;
+      padding: clamp(1.5rem, 5vw, 4rem);
+      pointer-events: none;
+    }
+
+    .hud-panel {
+      width: min(720px, 92vw);
+      display: flex;
+      flex-direction: column;
+      gap: clamp(1rem, 2vw, 1.75rem);
+      padding: clamp(1.5rem, 3vw, 2.5rem) clamp(1.8rem, 4vw, 3rem);
+      border-radius: 1.5rem;
+      background: rgba(24, 24, 27, 0.85);
+      border: 1px solid rgba(63, 63, 70, 0.55);
+      backdrop-filter: blur(24px);
+      box-shadow: 0 32px 80px rgba(15, 15, 15, 0.65);
+      pointer-events: auto;
+    }
+
+    .hud-header {
+      display: flex;
+      flex-direction: column;
+      gap: 0.25rem;
+      text-align: center;
+    }
+
+    .hud-label {
+      font-size: 0.75rem;
+      letter-spacing: 0.24em;
+      text-transform: uppercase;
+      color: rgba(161, 161, 170, 0.78);
+    }
+
+    #break-name {
+      margin: 0;
+      font-size: clamp(1.4rem, 3vw, 1.85rem);
+      letter-spacing: 0.04em;
+      color: #f5f5f5;
+    }
+
+    #timer {
+      font-size: clamp(3rem, 9vw, 5.5rem);
+      font-weight: 600;
+      text-align: center;
+      letter-spacing: 0.12em;
+      color: #fde68a;
+      text-shadow: 0 0 18px rgba(250, 240, 202, 0.35);
+    }
+
+    #subtitle {
+      margin: 0;
+      text-align: center;
+      font-size: clamp(0.9rem, 2vw, 1.1rem);
+      color: rgba(163, 163, 163, 0.88);
+    }
+
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 0.75rem;
+    }
+
+    button {
+      padding: 0.75rem 1.9rem;
+      border-radius: 999px;
+      border: 1px solid rgba(82, 82, 91, 0.6);
+      font-size: 0.95rem;
+      font-weight: 500;
+      letter-spacing: 0.02em;
+      cursor: pointer;
+      transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease, border-color 0.2s ease;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      pointer-events: auto;
+      background: rgba(255, 255, 255, 0.06);
+      color: #f5f5f5;
+    }
+
+    button:hover {
+      transform: translateY(-2px);
+      background: rgba(255, 255, 255, 0.12);
+      border-color: rgba(148, 163, 184, 0.7);
+      box-shadow: 0 12px 28px rgba(15, 15, 15, 0.45);
+    }
+
+    button:focus-visible {
+      outline: 2px solid rgba(156, 163, 175, 0.45);
+      outline-offset: 3px;
+    }
+
+    button:active {
+      transform: translateY(0px);
+    }
+
+    @media (max-width: 640px) {
+      .hud-panel {
+        padding: 1.25rem 1.5rem;
+      }
+
+      #timer {
+        letter-spacing: 0.08em;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="stage">
+    <iframe id="theme-frame" title="Break theme" class="theme-frame" sandbox="allow-scripts allow-same-origin"
+      allow="autoplay"></iframe>
+
+    <div class="hud">
+      <div class="hud-panel">
+        <div class="hud-header">
+          <span class="hud-label">Break in progress</span>
+          <p id="break-name"></p>
+        </div>
+        <div id="timer">00:00</div>
+        <p id="subtitle">Stretch, breathe, and reset your focus.</p>
+        <div class="actions">
+          <button id="pause">Pause</button>
+          <button id="skip">Skip</button>
+          <button id="close">Close</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Default fallback theme, embedded as a data URL -->
+  <template id="default-theme-template">
+    <!DOCTYPE html>
+    <html lang="en">
+
+    <head>
+      <meta charset="utf-8" />
+      <style>
+        :root {
+          color-scheme: dark;
+        }
+
+        * {
+          box-sizing: border-box;
+        }
+
+        html,
+        body {
+          margin: 0;
+          width: 100vw;
+          height: 100vh;
+          overflow: hidden;
+          background: radial-gradient(circle at top, rgba(63, 63, 70, 0.25) 0%, rgba(24, 24, 27, 0.92) 55%, rgba(10, 10, 10, 1) 100%);
+          color: #e5e5e5;
+          font-family: "Fira Code", "JetBrains Mono", monospace;
+        }
+
+        .panel {
+          padding: 3rem clamp(1.25rem, 4vw, 3rem);
+          border-radius: 2rem;
+          background: rgba(15, 23, 42, 0.85);
+          backdrop-filter: blur(24px);
+          width: min(640px, 90vw);
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 2rem;
+          border: 1px solid rgba(148, 163, 184, 0.45);
+          box-shadow: 0 36px 90px rgba(2, 6, 23, 0.6);
+        }
+
+        h1 {
+          margin: 0;
+          font-size: clamp(1.5rem, 3vw, 2.15rem);
+          font-weight: 600;
+          letter-spacing: 0.08em;
+          text-transform: uppercase;
+          color: #f5f5f5;
+          text-align: center;
+        }
+
+        .cat {
+          margin: 0;
+          white-space: pre;
+          line-height: 1.15;
+          font-size: clamp(0.9rem, 2.2vw, 1.1rem);
+          animation: stretch 3.8s ease-in-out infinite alternate;
+          color: #facc15;
+          filter: drop-shadow(0 0 14px rgba(250, 204, 21, 0.45));
+        }
+
+        @keyframes stretch {
+          0% {
+            transform: scale(1) translateY(0);
+          }
+
+          50% {
+            transform: scale(1.05, 0.94) translateY(-6px);
+          }
+
+          100% {
+            transform: scale(0.97, 1.06) translateY(6px);
+          }
+        }
+
+        .wrap {
+          height: 100%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+      </style>
+    </head>
+
+    <body>
+      <div class="wrap">
+        <div class="panel">
+          <h1>Remember to move</h1>
+          <pre class="cat">
+            /\_/\
+            ( o .o)
+            > ^ < </pre>
+        </div>
+      </div>
+    </body>
+
+    </html>
+  </template>
+
+  <script type="module">
+    const {invoke, convertFileSrc} = window.__TAURI__.core;
+    const {listen, emit} = window.__TAURI__.event;
+    const {getCurrent} = window.__TAURI__.window;
+
+    const pauseButton = document.getElementById("pause");
+    const skipButton = document.getElementById("skip");
+    const closeButton = document.getElementById("close");
+    const timerEl = document.getElementById("timer");
+    const nameEl = document.getElementById("break-name");
+    const subtitleEl = document.getElementById("subtitle");
+    const themeFrame = document.getElementById("theme-frame");
+    const defaultThemeTemplate = document.getElementById("default-theme-template");
+
+    const encodeDataUrl = (markup) =>
+      `data:text/html;base64,${btoa(unescape(encodeURIComponent(markup)))}`;
+
+    const defaultThemeMarkup = defaultThemeTemplate.innerHTML.trim();
+    const defaultThemeSrc = encodeDataUrl(defaultThemeMarkup);
+
+    let currentBreak = null;
+    let localSeconds = 0;
+    let localTicker = null;
+    let frameLoaded = false;
+
+    const formatTime = (seconds) => {
+      const total = Math.max(0, Math.floor(seconds));
+      const mins = String(Math.floor(total / 60)).padStart(2, "0");
+      const secs = String(total % 60).padStart(2, "0");
+      return `${mins}:${secs}`;
+    };
+
+    const clearTicker = () => {if (localTicker) {clearInterval(localTicker); localTicker = null;} };
+
+    const startTicker = () => {
+      clearTicker();
+      localTicker = setInterval(() => {
+        if (!currentBreak || currentBreak.is_paused) return;
+        localSeconds = Math.max(0, localSeconds - 1);
+        timerEl.textContent = formatTime(localSeconds);
+        if (localSeconds === 0) clearTicker();
+      }, 1000);
+    };
+
+    const postToTheme = (type, data) => {
+      try {themeFrame.contentWindow?.postMessage({type, data}, "*");} catch { }
+    };
+
+    const applyThemeSource = (path) => {
+      if (path && path.length > 0) {
+        themeFrame.src = convertFileSrc(path);
+      } else {
+        themeFrame.src = defaultThemeSrc;
+      }
+    };
+
+    const refreshTheme = async () => {
+      try {
+        const path = await invoke("get_break_theme_path");
+        applyThemeSource(path ?? null);
+      } catch (error) {
+        console.error("Failed to load break theme", error);
+        applyThemeSource(null);
+      }
+    };
+
+    const updateUi = (isStart = false) => {
+      if (!currentBreak) {
+        timerEl.textContent = "00:00";
+        pauseButton.textContent = "Pause";
+        subtitleEl.textContent = "Stretch, breathe, and reset your focus.";
+        nameEl.textContent = "";
+        return;
+      }
+
+      nameEl.textContent = currentBreak.name ?? "";
+      localSeconds = currentBreak.run_time ?? 0;
+      timerEl.textContent = formatTime(localSeconds);
+
+      const isPaused = Boolean(currentBreak.is_paused);
+      pauseButton.textContent = isPaused ? "Resume" : "Pause";
+      subtitleEl.textContent = isPaused
+        ? "Paused — resume when you're ready."
+        : "Stretch, breathe, and reset your focus.";
+
+      if (currentBreak.is_running) {
+        if (isPaused) clearTicker(); else startTicker();
+      } else {
+        clearTicker();
+      }
+
+      // Forward lifecycle to theme
+      if (isStart) postToTheme("break:start", currentBreak);
+      else postToTheme("break:update", currentBreak);
+    };
+
+    // Allow the theme to request interactivity (e.g., clickable theme UI)
+    window.addEventListener("message", (evt) => {
+      const msg = evt.data || {};
+      if (msg.type === "overlay:togglePointerEvents") {
+        themeFrame.style.pointerEvents = msg.enabled ? "auto" : "none";
+      } else if (msg.type === "theme:done") {
+        emit("break-session-ended", {reason: "theme_done"});
+      } else if (msg.type === "theme:ready") {
+        if (currentBreak) postToTheme("break:start", currentBreak);
+      }
+    });
+
+    themeFrame.addEventListener("load", () => {
+      frameLoaded = true;
+      if (currentBreak) postToTheme("break:start", currentBreak);
+    });
+
+    const init = async () => {
+      await refreshTheme();
+
+      await listen("break-theme-updated", (event) => {
+        applyThemeSource(event.payload ?? null);
+      });
+
+      await listen("break-session-update", (event) => {
+        const wasNull = currentBreak == null;
+        currentBreak = event.payload;
+        // If the theme source changed (refreshTheme is sent elsewhere), wait for load to fire the start
+        updateUi(wasNull);
+      });
+
+      await listen("break-session-ended", () => {
+        clearTicker();
+        postToTheme("break:end", currentBreak || {});
+        setTimeout(() => getCurrent().close(), 200);
+      });
+
+      pauseButton.addEventListener("click", async () => {
+        if (!currentBreak) return;
+        try {
+          if (currentBreak.is_paused) {
+            await invoke("resume_break", {id: currentBreak.id});
+          } else {
+            await invoke("pause_break", {id: currentBreak.id});
+          }
+        } catch (error) {console.error("Failed to toggle pause", error);}
+      });
+
+      skipButton.addEventListener("click", async () => {
+        if (!currentBreak) return;
+        try {await invoke("skip_break", {id: currentBreak.id});}
+        catch (error) {console.error("Failed to skip break", error);}
+      });
+
+      closeButton.addEventListener("click", () => {
+        clearTicker();
+        postToTheme("break:end", currentBreak || {});
+        getCurrent().close();
+      });
+    };
+
+    document.addEventListener("DOMContentLoaded", init);
+  </script>
+</body>
+
+</html>
